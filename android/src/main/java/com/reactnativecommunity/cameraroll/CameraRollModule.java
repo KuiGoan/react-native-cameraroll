@@ -7,6 +7,7 @@
 
 package com.reactnativecommunity.cameraroll;
 
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -25,7 +26,13 @@ import android.os.Environment;
 import android.os.FileUtils;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Images;
+import android.provider.MediaStore.Video;
 import android.text.TextUtils;
+import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+import android.util.SparseIntArray;
+import android.util.SparseLongArray;
+import android.webkit.MimeTypeMap;
 
 import com.facebook.common.logging.FLog;
 import com.facebook.react.bridge.GuardedAsyncTask;
@@ -50,7 +57,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -146,7 +155,7 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
       try {
         String album = mOptions.getString("album");
         boolean isAlbumPresent = !TextUtils.isEmpty(album);
-
+        boolean isVideo = "video".equals(mOptions.getString("type"))
         // Android Q and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
           Uri mediaCollection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
@@ -154,11 +163,20 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
           if (isAlbumPresent) {
             // Notes: I got this error when using Environment.DIRECTORY_MOVIES
             // Primary directory Movies not allowed for content://media/external_primary/file; allowed directories are [Download, Documents]
-            String relativePath = Environment.DIRECTORY_DOCUMENTS + File.separator + album;
-            mediaDetails.put(Images.Media.RELATIVE_PATH, relativePath);
+            if (isVideo) {
+              File dirDest = File(Environment.DIRECTORY_PICTURES, album);
+              mediaDetails.put(Video.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
+              mediaDetails.put(Video.Media.DISPLAY_NAME, source.getName());
+              mediaDetails.put(Video.Media.IS_PENDING, 1);
+            } else {
+              String mimeType = getMimetypeOrigin(mUri.getPath(), true);
+              File dirDest = File(Environment.DIRECTORY_MOVIES, album);
+              mediaDetails.put(Images.Media.MIME_TYPE, mimeType);
+              mediaDetails.put(Images.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
+              mediaDetails.put(Images.Media.DISPLAY_NAME, source.getName());
+              mediaDetails.put(Images.Media.IS_PENDING, 1);
+            }
           }
-          mediaDetails.put(Images.Media.DISPLAY_NAME, source.getName());
-          mediaDetails.put(Images.Media.IS_PENDING, 1);
           ContentResolver resolver = mContext.getContentResolver();
           Uri mediaContentUri = resolver
                   .insert(mediaCollection, mediaDetails);
@@ -166,14 +184,18 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
           input = new FileInputStream(source);
           FileUtils.copy(input, output);
           mediaDetails.clear();
-          mediaDetails.put(Images.Media.IS_PENDING, 0);
+          if (isVideo) {
+            mediaDetails.put(Video.Media.IS_PENDING, 0);
+          } else {
+            mediaDetails.put(Images.Media.IS_PENDING, 0);
+          }
           resolver.update(mediaContentUri, mediaDetails, null, null);
           mPromise.resolve(mediaContentUri.toString());
         } else {
           final File environment;
           // Media is not saved into an album when using Environment.DIRECTORY_DCIM.
           if (isAlbumPresent) {
-            if ("video".equals(mOptions.getString("type"))) {
+            if (isVideo) {
               environment = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
             } else {
               environment = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
@@ -896,4 +918,64 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
       }
     }
   }
+
+  public static String getMimetypeOrigin(String url, boolean isOrigin) {
+    String extension = getExtension(url);
+    if (isEmpty(extension)) {
+      return "*/*";
+    }
+    String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+    if (isEmpty(type)) {
+      return "*/*";
+    }
+    if (isOrigin) {
+      return type;
+    }
+    return type.substring(0, type.lastIndexOf("/"));
+  }
+
+  public static String getExtension(String url) {
+    if (isEmpty(url)) {
+      return "";
+    }
+    String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+    if (isEmpty(extension)) {
+      int index = url.lastIndexOf(".");
+      extension = url.substring(index + 1);
+    }
+    return extension;
+  }
+
+  @SuppressLint("ObsoleteSdkInt")
+  public static boolean isEmpty(Object obj) {
+    if (obj == null) {
+      return true;
+    }
+    if (obj instanceof String && obj.toString().length() == 0) {
+      return true;
+    }
+    if (obj.getClass().isArray() && Array.getLength(obj) == 0) {
+      return true;
+    }
+    if (obj instanceof Collection && ((Collection) obj).isEmpty()) {
+      return true;
+    }
+    if (obj instanceof Map && ((Map) obj).isEmpty()) {
+      return true;
+    }
+    if (obj instanceof SparseArray && ((SparseArray) obj).size() == 0) {
+      return true;
+    }
+    if (obj instanceof SparseBooleanArray && ((SparseBooleanArray) obj).size() == 0) {
+      return true;
+    }
+    if (obj instanceof SparseIntArray && ((SparseIntArray) obj).size() == 0) {
+      return true;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+      return obj instanceof SparseLongArray && ((SparseLongArray) obj).size() == 0;
+    }
+    return false;
+  }
+
 }
