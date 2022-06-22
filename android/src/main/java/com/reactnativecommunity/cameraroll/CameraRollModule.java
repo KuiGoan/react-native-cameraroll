@@ -155,7 +155,7 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
       try {
         String album = mOptions.getString("album");
         boolean isAlbumPresent = !TextUtils.isEmpty(album);
-        boolean isVideo = "video".equals(mOptions.getString("type"))
+        boolean isVideo = "video".equals(mOptions.getString("type"));
         // Android Q and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
           Uri mediaCollection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
