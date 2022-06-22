@@ -164,13 +164,13 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
             // Notes: I got this error when using Environment.DIRECTORY_MOVIES
             // Primary directory Movies not allowed for content://media/external_primary/file; allowed directories are [Download, Documents]
             if (isVideo) {
-              File dirDest = File(Environment.DIRECTORY_PICTURES, album);
+              File dirDest = new File(Environment.DIRECTORY_PICTURES, album);
               mediaDetails.put(Video.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
               mediaDetails.put(Video.Media.DISPLAY_NAME, source.getName());
               mediaDetails.put(Video.Media.IS_PENDING, 1);
             } else {
               String mimeType = getMimetypeOrigin(mUri.getPath(), true);
-              File dirDest = File(Environment.DIRECTORY_MOVIES, album);
+              File dirDest = new File(Environment.DIRECTORY_MOVIES, album);
               mediaDetails.put(Images.Media.MIME_TYPE, mimeType);
               mediaDetails.put(Images.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
               mediaDetails.put(Images.Media.DISPLAY_NAME, source.getName());
