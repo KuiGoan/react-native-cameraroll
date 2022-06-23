@@ -160,37 +160,40 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
           Uri mediaCollection;
           ContentValues mediaDetails = new ContentValues();
+          String mimeType = getMimetypeOrigin(mUri.getPath(), true);
           if (isAlbumPresent) {
             // Notes: I got this error when using Environment.DIRECTORY_MOVIES
             // Primary directory Movies not allowed for content://media/external_primary/file; allowed directories are [Download, Documents]
             if (isVideo) {
               mediaCollection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
               File dirDest = new File(Environment.DIRECTORY_MOVIES, album);
-              mediaDetails.put(Video.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
+              mediaDetails.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest.toString() + File.separator);
               mediaDetails.put(Video.Media.DISPLAY_NAME, source.getName());
               mediaDetails.put(Video.Media.IS_PENDING, 1);
             } else {
               mediaCollection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-              String mimeType = getMimetypeOrigin(mUri.getPath(), true);
               File dirDest = new File(Environment.DIRECTORY_PICTURES, album);
               mediaDetails.put(Images.Media.MIME_TYPE, mimeType);
-              mediaDetails.put(Images.Media.RELATIVE_PATH, dirDest.toString() + File.separator);
+              mediaDetails.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest.toString() + File.separator);
               mediaDetails.put(Images.Media.DISPLAY_NAME, source.getName());
               mediaDetails.put(Images.Media.IS_PENDING, 1);
             }
           } else {
             mediaCollection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
           }
+          mediaDetails.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
           ContentResolver resolver = mContext.getContentResolver();
           Uri mediaContentUri = resolver.insert(mediaCollection, mediaDetails);
           output = resolver.openOutputStream(mediaContentUri);
           input = new FileInputStream(source);
           FileUtils.copy(input, output);
           mediaDetails.clear();
-          if (isVideo) {
-            mediaDetails.put(Video.Media.IS_PENDING, 0);
-          } else {
-            mediaDetails.put(Images.Media.IS_PENDING, 0);
+          if (isAlbumPresent) {
+            if (isVideo) {
+              mediaDetails.put(Video.Media.IS_PENDING, 0);
+            } else {
+              mediaDetails.put(Images.Media.IS_PENDING, 0);
+            }
           }
           resolver.update(mediaContentUri, mediaDetails, null, null);
           mPromise.resolve(mediaContentUri.toString());
